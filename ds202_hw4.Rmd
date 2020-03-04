@@ -26,6 +26,7 @@ weight0 <- ChickWeight %>%
 print(weight0)
 ```
 
+We see that diet 1 has the most chicks with 20 while the other diets have 10 chicks each for a total of 50 chicks. The chicks are mostly around the same weight at the start of the study, between 40.7 and 41.4. 
 
 \#2. Each chick should have twelve weight measurements. Use the dplyr package to identify how many measurements are there for each chick. Extract a subset of the data for all chicks with complete information, name the data set complete, and print the first 3 rows.
 
@@ -34,10 +35,14 @@ ChickWeight %>% group_by(Chick) %>% summarize(n = n()) %>%
   filter(n < 12)
 ```
 
+We see that there are 5 chicks that do not have 12 measurements. We can make a new dataframe `complete` without these chicks.
+
 ```{r}
 complete <- ChickWeight %>% filter(!Chick %in% c(18, 16, 15, 8, 44))
 complete %>% head(3)
 ```
+
+Now our `complete` dataframe has all chicks with all 12 measurerments.
 
 \#3. In the complete data set introduce a new variable that measures the current weight difference compared to day 0. Name this variable weightgain and print the first 3 rows of the new data frame.
 
@@ -49,12 +54,19 @@ complete <- complete %>%
 complete %>% head(3)
 ```
 
+Using `dplyr` functions, we can make the `weightgain` variable. This tells us the weight difference by chick compared to day 0 and will be useful for the rest of our calculations.
+
 \#4. Use {ggplot2} to create side-by-side boxplots of weightgain by Diet for day 21. Change the order of the categories in the Diet variable such that the boxplots are ordered by median weightgain, and the lower limit of the y axis should be 0. Describe the relationship in 2-3 sentences.
 
 ```{r}
-ggplot(filter(complete, Time == 21), aes(y=Diet, x=weightgain)) + geom_boxplot() + xlim(0, NA)
+ggplot(filter(complete, Time == 21), aes(y=weightgain, x=reorder(Diet, weightgain, FUN = median))) + 
+  geom_boxplot() + ylim(0, NA) + 
+  xlab('Diet') +
+  ylab('Weight gained') + 
+  ggtitle('Total weight gained by diet')
 ```
 
+From this boxplot, we can see that diet 3 has the highest median weight gain and diet 1 has the lowest median weight gain. This chart could help decide which diet to give to a chick, depending on whether they need the chick to gain more or less weight.
 
 \#5. Answer each of the following questions using numerical and graphical summary. Also explain what you found: (a) Which chick gained the most weight and which gained the least weight? (b) What diets were they on?
 
@@ -67,18 +79,29 @@ weights <- complete %>%
 weights
 ```
 
+We can use a filter to extract the minimum and maximum weight gain on day 21. From the table, we can see that chick 24 had the least weight gain whereas chick 35 had the most. They were on diets 2 and 3, respectively. Lets look at a graph of this data.
+
 ```{r}
-ggplot(filter(complete, Time == 21), aes(x=Chick, weight=weightgain, fill=Diet)) + geom_bar()
+ggplot(filter(complete, Time == 21), aes(x=Chick, weight=weightgain, fill=Diet)) + 
+  geom_bar() +
+  ylab('Number of Chicks') +
+  ggtitle('Total weightgain by diet for each chick') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
-
+We can see that chick 24 definitely had the lowest weightgain and chick 35 definitely had the most weightgain. Chick 24 is quite far off from the other chicks in diet 2, so it's curious as to what caused the chick to gain such little weight.
 
 \#6. For the chicks with the least and the most weight at time 0, plot their growth trajectories over time.
+
 ```{r}
 ggplot(filter(complete, Chick == 24 | Chick == 35), aes(Time, weight, color=Chick)) + 
-  geom_line()
+  geom_line() +
+  xlab('Number of Days on Diet') +
+  ylab('Weight') +
+  ggtitle('Chick growth trajectories')
 ```
 
+We can see that both chicks start out gaining a similar amount of weight. At aproximately day 6 is when the weightgain stagnates for chick 24. In fact, chick 24 even loses weight around this time. Perhaps there are health problems with this chick. At approximately the same time is when chick 35 also skyrockets growth and doesn't slow down.
 
 \#7. Add to the previous plot the average growth trajectory for all chicks (calculated as the mean weight for each chick at each time). How do the trajectories compare?
 
@@ -92,8 +115,45 @@ chick2 <- complete %>%
 
 ggplot() + 
   geom_line(data=chick1, aes(Time, weight, color=Chick)) +
-  geom_line(data=chick2, aes(Time, weight, color='All'))
+  geom_line(data=chick2, aes(Time, weight, color='All')) +
+  xlab('Number of Days on Diet') +
+  ylab('Weight') +
+  ggtitle('Chick growth trajectories')
 ```
 
+The mean weight growth for the chicks seems to be almost directly in the middle between chicks 24 and 35. From this graph, we can also see how drastic the growth was for chick 35 and how lacking the growth was for chick 24. 
 
 \#8. What else do you find interesting in the dataset? Show your exploratory analysis.
+
+What is the trajectory of the mean weight for all chicks by diet?
+
+```{r}
+dat <- complete %>%
+  group_by(Time, Diet) %>% 
+  summarize(weight = mean(weight))
+
+ggplot(dat, aes(x = Time, y = weight, color = Diet)) + 
+  geom_line() +
+  xlab('Number of days on diet') +
+  ylab('Weight') +
+  ggtitle('Trajectory of chick weights by diet')
+```
+
+From here we can see the overall trajectory of mean weights by diet for all chicks. We see that diet 4 had the highest average weight gain until around day 14, when diet 3 took over.
+
+How does the mean weight gain compare relatively by diet on day 10 and day 21? In other words, can day 10 help predict the total mean weight gain?
+
+```{r}
+dat2 <- complete %>%
+  group_by(Time, Diet) %>% 
+  filter(Time == 10 | Time == 21) %>% 
+  summarize(weightgain = mean(weightgain))
+
+ggplot(dat2, aes(x=Diet, weight = weightgain)) + 
+  geom_bar() +
+  facet_wrap(~Time, scale='free_y') +
+  ylab('Mean weight gain') +
+  ggtitle('Comparison of relative mean weight gain by diet on days 10 and 21')
+```
+
+According to this, diet 4 has gained the most weight on average by day 10. However, by day 21, diet 3 is clearly the diet in which chicks gained the most weight on average. This could be due to chick 35 having such a large total weightgain as we saw earlier, which could be throwing the average off.
